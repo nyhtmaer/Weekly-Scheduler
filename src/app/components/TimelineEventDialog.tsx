@@ -34,8 +34,8 @@ const colors = [
 
 export function TimelineEventDialog({ open, onClose, onSave, event, day }: TimelineEventDialogProps) {
   const [title, setTitle] = useState("");
-  const [hours, setHours] = useState("0");
-  const [minutes, setMinutes] = useState("30");
+  const [fromTime, setFromTime] = useState("09:00");
+  const [toTime, setToTime] = useState("10:00");
   const [selectedDay, setSelectedDay] = useState(day || "Monday");
   const [color, setColor] = useState("bg-blue-500");
 
@@ -44,25 +44,45 @@ export function TimelineEventDialog({ open, onClose, onSave, event, day }: Timel
       setTitle(event.title);
       setSelectedDay(event.day);
       setColor(event.color);
-      const totalMinutes = event.durationMinutes;
-      const h = Math.floor(totalMinutes / 60);
-      const m = totalMinutes % 60;
-      setHours(h.toString());
-      setMinutes(m.toString());
+      setFromTime(event.startTime);
+      // Calculate end time from start time + duration
+      const [startHours, startMinutes] = event.startTime.split(":").map(Number);
+      const totalStartMinutes = startHours * 60 + startMinutes;
+      const totalEndMinutes = totalStartMinutes + event.durationMinutes;
+      const endHours = Math.floor(totalEndMinutes / 60) % 24;
+      const endMinutes = totalEndMinutes % 60;
+      setToTime(`${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`);
     } else {
       setTitle("");
       setSelectedDay(day || "Monday");
-      setHours("0");
-      setMinutes("30");
+      setFromTime("09:00");
+      setToTime("10:00");
       setColor("bg-blue-500");
     }
   }, [event, day, open]);
 
   const handleSave = () => {
-    const durationMinutes = parseInt(hours) * 60 + parseInt(minutes);
+    // Parse times
+    const [fromHours, fromMinutes] = fromTime.split(":").map(Number);
+    const [toHours, toMinutes] = toTime.split(":").map(Number);
+    
+    const fromTotalMinutes = fromHours * 60 + fromMinutes;
+    let toTotalMinutes = toHours * 60 + toMinutes;
+    
+    // Handle overnight events (to time is next day)
+    if (toTotalMinutes <= fromTotalMinutes) {
+      toTotalMinutes += 1440; // Add 24 hours
+    }
+    
+    const durationMinutes = toTotalMinutes - fromTotalMinutes;
     
     if (durationMinutes <= 0) {
-      alert("Duration must be greater than 0");
+      alert("End time must be after start time");
+      return;
+    }
+
+    if (durationMinutes > 1440) {
+      alert("Event cannot be longer than 24 hours");
       return;
     }
 
@@ -70,7 +90,7 @@ export function TimelineEventDialog({ open, onClose, onSave, event, day }: Timel
       id: event?.id || Date.now().toString(),
       title,
       day: selectedDay,
-      startTime: event?.startTime || "00:00", // Will be calculated by parent
+      startTime: fromTime,
       durationMinutes,
       color,
     };
@@ -114,28 +134,24 @@ export function TimelineEventDialog({ open, onClose, onSave, event, day }: Timel
           </div>
 
           <div className="grid gap-2">
-            <Label>Duration</Label>
+            <Label>Time Period</Label>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="hours" className="text-xs text-gray-500">Hours</Label>
+                <Label htmlFor="fromTime" className="text-xs text-gray-500">From</Label>
                 <Input
-                  id="hours"
-                  type="number"
-                  min="0"
-                  max="24"
-                  value={hours}
-                  onChange={(e) => setHours(e.target.value)}
+                  id="fromTime"
+                  type="time"
+                  value={fromTime}
+                  onChange={(e) => setFromTime(e.target.value)}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="minutes" className="text-xs text-gray-500">Minutes</Label>
+                <Label htmlFor="toTime" className="text-xs text-gray-500">To</Label>
                 <Input
-                  id="minutes"
-                  type="number"
-                  min="0"
-                  max="59"
-                  value={minutes}
-                  onChange={(e) => setMinutes(e.target.value)}
+                  id="toTime"
+                  type="time"
+                  value={toTime}
+                  onChange={(e) => setToTime(e.target.value)}
                 />
               </div>
             </div>

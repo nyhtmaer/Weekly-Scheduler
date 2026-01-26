@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useDrag, useDrop, DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { TimelineEventDialog, TimelineEventData } from "@/app/components/TimelineEventDialog";
 import { Button } from "@/app/components/ui/button";
 import { Plus, Pencil, Trash2, GripVertical } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -20,7 +21,6 @@ const ItemTypes = {
 interface DraggableEventProps {
   event: TimelineEventData;
   index: number;
-  moveEvent: (dragIndex: number, hoverIndex: number) => void;
   onEdit: () => void;
   onDelete: () => void;
   style: React.CSSProperties;
@@ -28,10 +28,16 @@ interface DraggableEventProps {
   formatDuration: (minutes: number) => string;
 }
 
+interface DroppableDayColumnProps {
+  day: string;
+  children: React.ReactNode;
+  onDropAtPosition: (draggedEvent: TimelineEventData, dragIndex: number, targetMinutes: number) => void;
+  events: TimelineEventData[];
+}
+
 function DraggableEvent({
   event,
   index,
-  moveEvent,
   onEdit,
   onDelete,
   style,
@@ -46,53 +52,154 @@ function DraggableEvent({
     }),
   });
 
+  // Determine if event is too small to show full details (less than 30 minutes)
+  const isSmallEvent = event.durationMinutes < 30;
+  const isTinyEvent = event.durationMinutes < 15;
+
+  const eventContent = (
+    <div
+      ref={drag}
+      className={`absolute left-1 right-1 ${event.color} text-white rounded shadow-md group/event cursor-move overflow-visible ${
+        isDragging ? "opacity-50" : ""
+      } ${isTinyEvent ? "p-0.5" : "p-2"}`}
+      style={style}
+    >
+      {isTinyEvent ? (
+        // Tiny event: Just show title in one line with minimal padding
+        <div className="flex items-center gap-0.5 text-[10px] leading-tight px-1">
+          <GripVertical className="w-2.5 h-2.5 flex-shrink-0 opacity-50" />
+          <span className="truncate flex-1 font-semibold">{event.title}</span>
+          <div className="flex gap-0.5 opacity-0 group-hover/event:opacity-100 transition-opacity flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="p-0.5 hover:bg-white/20 rounded"
+            >
+              <Pencil className="w-2.5 h-2.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="p-0.5 hover:bg-white/20 rounded"
+            >
+              <Trash2 className="w-2.5 h-2.5" />
+            </button>
+          </div>
+        </div>
+      ) : isSmallEvent ? (
+        // Small event: Show title only with compact layout
+        <div className="flex items-center gap-1">
+          <GripVertical className="w-3 h-3 flex-shrink-0 opacity-50" />
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold truncate">{event.title}</div>
+          </div>
+          <div className="flex gap-1 opacity-0 group-hover/event:opacity-100 transition-opacity flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="p-1 hover:bg-white/20 rounded"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="p-1 hover:bg-white/20 rounded"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        // Regular event: Show all details
+        <div className="flex items-start gap-1">
+          <GripVertical className="w-4 h-4 flex-shrink-0 opacity-50" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm">
+              <div className="font-semibold truncate">{event.title}</div>
+              <div className="text-xs opacity-90 mt-1">{formatDuration(event.durationMinutes)}</div>
+            </div>
+          </div>
+          <div className="flex gap-1 opacity-0 group-hover/event:opacity-100 transition-opacity flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="p-1 hover:bg-white/20 rounded"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="p-1 hover:bg-white/20 rounded"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Wrap all events with tooltip
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {eventContent}
+      </TooltipTrigger>
+      <TooltipContent side="right" className="bg-gray-900 text-white p-2">
+        <div className="space-y-1">
+          <div className="font-semibold">{event.title}</div>
+          <div className="text-xs">
+            {event.startTime} - {getEndTime(event)}
+          </div>
+          <div className="text-xs opacity-80">{formatDuration(event.durationMinutes)}</div>
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function DroppableDayColumn({ day, children, onDropAtPosition, events }: DroppableDayColumnProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  
   const [, drop] = useDrop({
     accept: ItemTypes.EVENT,
-    hover: (item: { index: number; eventId: string }) => {
-      if (item.index !== index) {
-        moveEvent(item.index, index);
-        item.index = index;
+    drop: (item: { index: number; eventId: string }, monitor) => {
+      if (!ref.current) return;
+      
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      
+      const boundingRect = ref.current.getBoundingClientRect();
+      const hoverY = clientOffset.y - boundingRect.top;
+      const hoverPercentage = hoverY / boundingRect.height;
+      const targetMinutes = Math.round(hoverPercentage * 1440); // 1440 minutes in a day
+      
+      const draggedEvent = events[item.index];
+      if (draggedEvent) {
+        onDropAtPosition(draggedEvent, item.index, targetMinutes);
       }
     },
   });
 
+  drop(ref);
+
   return (
-    <div
-      ref={(node) => drag(drop(node))}
-      className={`absolute left-1 right-1 ${event.color} text-white rounded p-2 shadow-md group/event cursor-move overflow-hidden ${
-        isDragging ? "opacity-50" : ""
-      }`}
-      style={style}
-    >
-      <div className="flex items-start gap-1">
-        <GripVertical className="w-4 h-4 flex-shrink-0 opacity-50" />
-        <div className="flex-1 min-w-0">
-          <div className="text-sm">
-            <div className="font-semibold truncate">{event.title}</div>
-            <div className="text-xs opacity-90 mt-1">{formatDuration(event.durationMinutes)}</div>
-          </div>
-        </div>
-        <div className="flex gap-1 opacity-0 group-hover/event:opacity-100 transition-opacity flex-shrink-0">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit();
-            }}
-            className="p-1 hover:bg-white/20 rounded"
-          >
-            <Pencil className="w-3 h-3" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="p-1 hover:bg-white/20 rounded"
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
+    <div ref={ref} className="relative" style={{ height: "1200px" }}>
+      {children}
     </div>
   );
 }
@@ -107,106 +214,21 @@ function TimelinePlannerContent() {
   const [selectedDay, setSelectedDay] = useState<string>("");
 
   useEffect(() => {
-  localStorage.setItem("weekly-events", JSON.stringify(events));
-}, [events]);
+    localStorage.setItem("weekly-events", JSON.stringify(events));
+  }, [events]);
 
-  const handleAddEvent = (day: string) => {
-    setSelectedEvent(null);
-    setSelectedDay(day);
-    setDialogOpen(true);
-  };
-
-  const handleEditEvent = (event: TimelineEventData) => {
-    setSelectedEvent(event);
-    setDialogOpen(true);
-  };
-
-  const handleDeleteEvent = (eventId: string) => {
-    setEvents(events.filter((e) => e.id !== eventId));
-  };
-
-  const timeToMinutes = (time: string) => {
+  const timeToMinutes = useCallback((time: string) => {
     const [hours, minutes] = time.split(":").map(Number);
     return hours * 60 + minutes;
-  };
+  }, []);
 
-  const minutesToTime = (minutes: number) => {
+  const minutesToTime = useCallback((minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
-  };
+  }, []);
 
-  const recalculateStartTimes = (dayEvents: TimelineEventData[]) => {
-    let currentTime = 0; // Start at 00:00
-    return dayEvents.map((event) => {
-      const updatedEvent = { ...event, startTime: minutesToTime(currentTime) };
-      currentTime += event.durationMinutes;
-      return updatedEvent;
-    });
-  };
-
-  const handleSaveEvent = (eventData: TimelineEventData) => {
-    if (selectedEvent) {
-      // Editing existing event
-      const updatedEvents = events.map((e) => (e.id === eventData.id ? { ...eventData, startTime: e.startTime } : e));
-      
-      // Recalculate start times for the day
-      const dayEvents = updatedEvents.filter((e) => e.day === eventData.day);
-      const otherDayEvents = updatedEvents.filter((e) => e.day !== eventData.day);
-      const recalculatedDayEvents = recalculateStartTimes(dayEvents);
-      
-      setEvents([...otherDayEvents, ...recalculatedDayEvents]);
-    } else {
-      // Adding new event
-      const dayEvents = events.filter((e) => e.day === eventData.day);
-      const totalScheduled = dayEvents.reduce((sum, e) => sum + e.durationMinutes, 0);
-
-      // Check if event would exceed 24 hours
-      if (totalScheduled + eventData.durationMinutes > 1440) {
-        alert("Event would exceed 24 hours!");
-        return;
-      }
-
-      const startTime = minutesToTime(totalScheduled);
-      setEvents([...events, { ...eventData, startTime }]);
-    }
-  };
-
-  const moveEvent = (day: string, dragIndex: number, hoverIndex: number) => {
-    const dayEvents = getEventsForDay(day);
-    const draggedEvent = dayEvents[dragIndex];
-
-    // Reorder events
-    const newOrder = [...dayEvents];
-    newOrder.splice(dragIndex, 1);
-    newOrder.splice(hoverIndex, 0, draggedEvent);
-
-    // Recalculate start times
-    const recalculated = recalculateStartTimes(newOrder);
-
-    // Update all events
-    const otherDayEvents = events.filter((e) => e.day !== day);
-    setEvents([...otherDayEvents, ...recalculated]);
-  };
-
-  const getEventsForDay = (day: string) => {
-    return events
-      .filter((e) => e.day === day)
-      .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-  };
-
-  const getEventStyle = (event: TimelineEventData) => {
-    const startMinutes = timeToMinutes(event.startTime);
-    const percentage = (startMinutes / 1440) * 100;
-    const heightPercentage = (event.durationMinutes / 1440) * 100;
-
-    return {
-      top: `${percentage}%`,
-      height: `${heightPercentage}%`,
-    };
-  };
-
-  const formatDuration = (minutes: number) => {
+  const formatDuration = useCallback((minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hours > 0 && mins > 0) {
@@ -216,14 +238,84 @@ function TimelinePlannerContent() {
     } else {
       return `${mins}m`;
     }
-  };
+  }, []);
 
-  const getEndTime = (event: TimelineEventData) => {
+  const getEndTime = useCallback((event: TimelineEventData) => {
     const endMinutes = timeToMinutes(event.startTime) + event.durationMinutes;
     return minutesToTime(endMinutes);
-  };
+  }, [timeToMinutes, minutesToTime]);
 
-  const getDayStats = (day: string) => {
+  const getEventsForDay = useCallback((day: string) => {
+    return events
+      .filter((e) => e.day === day)
+      .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+  }, [events, timeToMinutes]);
+
+  const handleAddEvent = useCallback((day: string) => {
+    setSelectedEvent(null);
+    setSelectedDay(day);
+    setDialogOpen(true);
+  }, []);
+
+  const handleEditEvent = useCallback((event: TimelineEventData) => {
+    setSelectedEvent(event);
+    setDialogOpen(true);
+  }, []);
+
+  const handleDeleteEvent = useCallback((eventId: string) => {
+    setEvents(prev => prev.filter((e) => e.id !== eventId));
+  }, []);
+
+  const handleSaveEvent = useCallback((eventData: TimelineEventData) => {
+    setEvents(prev => {
+      if (selectedEvent) {
+        // Editing existing event - just update it
+        return prev.map((e) => (e.id === eventData.id ? eventData : e));
+      } else {
+        // Adding new event
+        return [...prev, eventData];
+      }
+    });
+  }, [selectedEvent]);
+
+  const handleDropAtPosition = useCallback((day: string, draggedEvent: TimelineEventData, dragIndex: number, targetMinutes: number) => {
+    // Clamp target minutes to valid range
+    const clampedMinutes = Math.max(0, Math.min(1440 - draggedEvent.durationMinutes, targetMinutes));
+    
+    setEvents(prev => {
+      // Get all events for this day except the dragged one
+      const dayEvents = prev.filter(e => e.day === day);
+      const otherDayEvents = dayEvents.filter((_, idx) => idx !== dragIndex);
+      
+      // Create updated dragged event with new start time
+      const updatedDraggedEvent = {
+        ...draggedEvent,
+        startTime: minutesToTime(clampedMinutes),
+      };
+      
+      // Add the dragged event back and sort by start time
+      const updatedDayEvents = [...otherDayEvents, updatedDraggedEvent].sort(
+        (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+      );
+      
+      // Update all events
+      const allOtherEvents = prev.filter((e) => e.day !== day);
+      return [...allOtherEvents, ...updatedDayEvents];
+    });
+  }, [minutesToTime, timeToMinutes]);
+
+  const getEventStyle = useCallback((event: TimelineEventData) => {
+    const startMinutes = timeToMinutes(event.startTime);
+    const percentage = (startMinutes / 1440) * 100;
+    const heightPercentage = (event.durationMinutes / 1440) * 100;
+
+    return {
+      top: `${percentage}%`,
+      height: `${heightPercentage}%`,
+    };
+  }, [timeToMinutes]);
+
+  const getDayStats = useCallback((day: string) => {
     const dayEvents = getEventsForDay(day);
     const scheduledMinutes = dayEvents.reduce((sum, e) => sum + e.durationMinutes, 0);
     const unscheduledMinutes = 1440 - scheduledMinutes;
@@ -233,7 +325,7 @@ function TimelinePlannerContent() {
       unscheduled: formatDuration(unscheduledMinutes),
       percentage: ((scheduledMinutes / 1440) * 100).toFixed(0),
     };
-  };
+  }, [getEventsForDay, formatDuration]);
 
   return (
     <div className="w-full h-auto md:h-full overflow-auto p-4 bg-gray-50">
@@ -241,7 +333,7 @@ function TimelinePlannerContent() {
         <div className="mb-6">
           <h1 className="text-3xl mb-2">Weekly Timeline Planner</h1>
           <p className="text-gray-600">
-            Click the + button on any day to add an activity. Drag events to reorder them within the day.
+            Click the + button to add an activity with specific start and end times. Drag events to reposition them to any time in the day.
           </p>
         </div>
 
@@ -286,7 +378,13 @@ function TimelinePlannerContent() {
                     </Button>
                   </div>
 
-                  <div className="relative" style={{ height: "1200px" }}>
+                  <DroppableDayColumn
+                    day={day}
+                    onDropAtPosition={(draggedEvent, dragIndex, targetMinutes) =>
+                      handleDropAtPosition(day, draggedEvent, dragIndex, targetMinutes)
+                    }
+                    events={dayEvents}
+                  >
                     {/* Hour markers */}
                     {timeMarkers.map((_, index) => (
                       <div
@@ -302,7 +400,6 @@ function TimelinePlannerContent() {
                         key={event.id}
                         event={event}
                         index={index}
-                        moveEvent={(dragIndex, hoverIndex) => moveEvent(day, dragIndex, hoverIndex)}
                         onEdit={() => handleEditEvent(event)}
                         onDelete={() => handleDeleteEvent(event.id)}
                         style={getEventStyle(event)}
@@ -310,7 +407,7 @@ function TimelinePlannerContent() {
                         formatDuration={formatDuration}
                       />
                     ))}
-                  </div>
+                  </DroppableDayColumn>
 
                   {/* Stats footer */}
                   <div className="h-20 border-t bg-gray-50 p-2">
