@@ -2,6 +2,11 @@
 
 A React + TypeScript weekly timetable planner that displays a week-at-a-glance schedule. Users can add, edit, move, and delete events, drag events to reschedule, and view their week visually. All data is stored in localStorage so it persists without a backend.
 
+## Features
+
+- Scheduler
+- Tasks (daily, weekly, monthly)
+  
 ## Tech Stack
 
 - React
