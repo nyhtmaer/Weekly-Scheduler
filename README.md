@@ -37,7 +37,7 @@ npm install -g pnpm
   pnpm build
 ```
 
-###License and Attributions
+### License and Attributions
 
 This project is licensed under the MIT License.
 See ATTRIBUTIONS.md for third-party attributions.
