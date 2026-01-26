@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Checkbox } from "@/app/components/ui/checkbox";
@@ -17,10 +17,22 @@ interface Task {
 }
 
 export function GoalsTasksSidebar() {
-  const [dailyGoals, setDailyGoals] = useState<Goal[]>([]);
-  const [weeklyGoals, setWeeklyGoals] = useState<Goal[]>([]);
-  const [monthlyGoals, setMonthlyGoals] = useState<Goal[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [dailyGoals, setDailyGoals] = useState<Goal[]>(() => {
+    const saved = localStorage.getItem("daily-goals");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [weeklyGoals, setWeeklyGoals] = useState<Goal[]>(() => {
+    const saved = localStorage.getItem("weekly-goals");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [monthlyGoals, setMonthlyGoals] = useState<Goal[]>(() => {
+    const saved = localStorage.getItem("monthly-goals");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const saved = localStorage.getItem("tasks");
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const [newDailyGoal, setNewDailyGoal] = useState("");
   const [newWeeklyGoal, setNewWeeklyGoal] = useState("");
@@ -28,6 +40,23 @@ export function GoalsTasksSidebar() {
   const [newTask, setNewTask] = useState("");
 
   const [editingGoal, setEditingGoal] = useState<{ type: string; id: string; text: string } | null>(null);
+
+  // Save to localStorage whenever goals or tasks change
+  useEffect(() => {
+    localStorage.setItem("daily-goals", JSON.stringify(dailyGoals));
+  }, [dailyGoals]);
+
+  useEffect(() => {
+    localStorage.setItem("weekly-goals", JSON.stringify(weeklyGoals));
+  }, [weeklyGoals]);
+
+  useEffect(() => {
+    localStorage.setItem("monthly-goals", JSON.stringify(monthlyGoals));
+  }, [monthlyGoals]);
+
+  useEffect(() => {
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+  }, [tasks]);
 
   const addGoal = (type: "daily" | "weekly" | "monthly", text: string) => {
     if (!text.trim()) return;
