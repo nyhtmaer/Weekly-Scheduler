@@ -14,7 +14,7 @@ Comes with desktop as well as mobile phone view.
 - TypeScript
 - Vite
 - pnpm
-- CSS (styled to match a Figma design)
+- CSS (styled with Figma)
 
 ## Installation
 NodeJS and pnpm are required. If pnpm not available, install using:
