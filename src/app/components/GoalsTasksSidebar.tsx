@@ -16,7 +16,13 @@ interface Task {
   completed: boolean;
 }
 
-export function GoalsTasksSidebar() {
+interface GoalsTasksSidebarProps {
+  isMobile?: boolean;
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function GoalsTasksSidebar({ isMobile = false, isOpen = false, onClose }: GoalsTasksSidebarProps = {}) {
   const [dailyGoals, setDailyGoals] = useState<Goal[]>(() => {
     const saved = localStorage.getItem("daily-goals");
     return saved ? JSON.parse(saved) : [];
@@ -179,16 +185,28 @@ export function GoalsTasksSidebar() {
     );
   };
 
-  return (
-    <div className="w-full md:w-80 h-auto md:h-full bg-white border-t md:border-t-0 md:border-l overflow-y-auto p-4 space-y-4">
-      <h2 className="text-2xl mb-4">Goals & Tasks</h2>
+  const sidebarContent = (
+    <>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-semibold">Goals & Tasks</h2>
+        {isMobile && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-10 w-10"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        )}
+      </div>
 
       {/* Daily Goals */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="border-gray-100 shadow-sm rounded-xl">
+        <CardHeader className="pb-4">
           <CardTitle className="text-lg">Daily Goals</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
           {dailyGoals.map((goal) => (
             <GoalItem key={goal.id} goal={goal} type="daily" />
           ))}
@@ -207,11 +225,11 @@ export function GoalsTasksSidebar() {
       </Card>
 
       {/* Weekly Goals */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="border-gray-100 shadow-sm rounded-xl">
+        <CardHeader className="pb-4">
           <CardTitle className="text-lg">Weekly Goals</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
           {weeklyGoals.map((goal) => (
             <GoalItem key={goal.id} goal={goal} type="weekly" />
           ))}
@@ -230,11 +248,11 @@ export function GoalsTasksSidebar() {
       </Card>
 
       {/* Monthly Goals */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="border-gray-100 shadow-sm rounded-xl">
+        <CardHeader className="pb-4">
           <CardTitle className="text-lg">Monthly Goals</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
           {monthlyGoals.map((goal) => (
             <GoalItem key={goal.id} goal={goal} type="monthly" />
           ))}
@@ -253,11 +271,11 @@ export function GoalsTasksSidebar() {
       </Card>
 
       {/* Tasks */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="border-gray-100 shadow-sm rounded-xl">
+        <CardHeader className="pb-4">
           <CardTitle className="text-lg">Tasks</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
           {tasks.map((task) => (
             <div key={task.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded group">
               <Checkbox checked={task.completed} onCheckedChange={() => toggleTask(task.id)} />
@@ -287,6 +305,37 @@ export function GoalsTasksSidebar() {
           </div>
         </CardContent>
       </Card>
+    </>
+  );
+
+  // Mobile: Render as overlay with backdrop
+  if (isMobile) {
+    return (
+      <>
+        {/* Backdrop */}
+        {isOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+            onClick={onClose}
+          />
+        )}
+        
+        {/* Sidebar overlay */}
+        <div 
+          className={`fixed top-0 right-0 h-full w-80 bg-white z-50 overflow-y-auto p-8 shadow-2xl transition-transform duration-300 ease-in-out ${
+            isOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          {sidebarContent}
+        </div>
+      </>
+    );
+  }
+
+  // Desktop: Render inline as before
+  return (
+    <div className="w-full md:w-96 h-auto md:h-full bg-white border-t md:border-t-0 md:border-l border-gray-100 overflow-y-auto p-6 md:p-8 space-y-6">
+      {sidebarContent}
     </div>
   );
 }

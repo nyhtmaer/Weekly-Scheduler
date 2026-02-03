@@ -59,9 +59,9 @@ function DraggableEvent({
   const eventContent = (
     <div
       ref={drag}
-      className={`absolute left-1 right-1 ${event.color} text-white rounded shadow-md group/event cursor-move overflow-visible ${
+      className={`absolute left-1 right-1 ${event.color} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow group/event cursor-move overflow-hidden ${
         isDragging ? "opacity-50" : ""
-      } ${isTinyEvent ? "p-0.5" : "p-2"}`}
+      } ${isTinyEvent ? "p-1" : "p-2.5 md:p-2"}`}
       style={style}
     >
       {isTinyEvent ? (
@@ -96,8 +96,9 @@ function DraggableEvent({
           <GripVertical className="w-3 h-3 flex-shrink-0 opacity-50" />
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold truncate">{event.title}</div>
+            <div className="text-[10px] opacity-75 mt-0.5 hidden md:block">{formatDuration(event.durationMinutes)}</div>
           </div>
-          <div className="flex gap-1 opacity-0 group-hover/event:opacity-100 transition-opacity flex-shrink-0">
+          <div className="hidden md:flex gap-1 opacity-0 group-hover/event:opacity-100 transition-opacity flex-shrink-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -119,7 +120,7 @@ function DraggableEvent({
           </div>
         </div>
       ) : (
-        // Regular event: Show all details
+        // Regular event: Show all details on desktop, simplified on mobile
         <div className="flex items-start gap-1">
           <GripVertical className="w-4 h-4 flex-shrink-0 opacity-50" />
           <div className="flex-1 min-w-0">
@@ -128,7 +129,7 @@ function DraggableEvent({
               <div className="text-xs opacity-90 mt-1">{formatDuration(event.durationMinutes)}</div>
             </div>
           </div>
-          <div className="flex gap-1 opacity-0 group-hover/event:opacity-100 transition-opacity flex-shrink-0">
+          <div className="hidden md:flex gap-1 opacity-0 group-hover/event:opacity-100 transition-opacity flex-shrink-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -198,7 +199,7 @@ function DroppableDayColumn({ day, children, onDropAtPosition, events }: Droppab
   drop(ref);
 
   return (
-    <div ref={ref} className="relative" style={{ height: "1200px" }}>
+    <div ref={ref} className="relative overflow-hidden" style={{ height: "1200px" }}>
       {children}
     </div>
   );
@@ -328,36 +329,37 @@ function TimelinePlannerContent() {
   }, [getEventsForDay, formatDuration]);
 
   return (
-    <div className="w-full h-auto md:h-full overflow-auto p-4 bg-gray-50">
+    <div className="w-full h-auto md:h-full overflow-auto p-6 md:p-4 bg-gray-50">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
+        <div className="mb-6 md:mb-6">
           <h1 className="text-3xl mb-2">Weekly Timeline Planner</h1>
           <p className="text-gray-600">
             Click the + button to add an activity with specific start and end times. Drag events to reposition them to any time in the day.
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="grid grid-cols-8 overflow-x-auto">
-            {/* Time column */}
-            <div className="border-r bg-gray-50 min-w-[60px]">
-              <div className="h-16 p-4 border-b bg-gray-100 flex items-center justify-center">
-                <span className="text-sm font-semibold">Time</span>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <div className="inline-flex min-w-full">
+              {/* Time column */}
+              <div className="border-r border-gray-100 bg-gray-50 w-20 flex-shrink-0">
+                <div className="h-16 p-4 border-b border-gray-100 bg-gray-100 flex items-center justify-center">
+                  <span className="text-sm font-semibold">Time</span>
+                </div>
+                <div className="relative" style={{ height: "1200px" }}>
+                  {timeMarkers.map((time, index) => (
+                    <div
+                      key={time}
+                      className="absolute w-full border-t border-gray-100 text-xs text-gray-500 px-2"
+                      style={{ top: `${(index / 24) * 100}%` }}
+                    >
+                      {time}
+                    </div>
+                  ))}
+                </div>
+                {/* Stats footer placeholder */}
+                <div className="h-20 border-t border-gray-100 bg-gray-100"></div>
               </div>
-              <div className="relative" style={{ height: "1200px" }}>
-                {timeMarkers.map((time, index) => (
-                  <div
-                    key={time}
-                    className="absolute w-full border-t text-xs text-gray-500 px-2"
-                    style={{ top: `${(index / 24) * 100}%` }}
-                  >
-                    {time}
-                  </div>
-                ))}
-              </div>
-              {/* Stats footer placeholder */}
-              <div className="h-20 border-t bg-gray-100"></div>
-            </div>
 
             {/* Day columns */}
             {days.map((day) => {
@@ -365,16 +367,16 @@ function TimelinePlannerContent() {
               const stats = getDayStats(day);
 
               return (
-                <div key={day} className="border-r last:border-r-0">
-                  <div className="h-16 p-4 border-b bg-gray-100 flex items-center justify-between">
+                <div key={day} className="border-r last:border-r-0 border-gray-100 w-42 flex-shrink-0">
+                  <div className="h-16 p-4 border-b border-gray-100 bg-gray-100 flex items-center justify-between">
                     <span className="font-semibold text-sm">{day}</span>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => handleAddEvent(day)}
-                      className="h-8 w-8 p-0"
+                      className="h-10 w-10 md:h-8 md:w-8 p-0"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-5 h-5 md:w-4 md:h-4" />
                     </Button>
                   </div>
 
@@ -410,7 +412,7 @@ function TimelinePlannerContent() {
                   </DroppableDayColumn>
 
                   {/* Stats footer */}
-                  <div className="h-20 border-t bg-gray-50 p-2">
+                  <div className="h-20 border-t border-gray-100 bg-gray-50 p-2">
                     <div className="text-xs space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Scheduled:</span>
@@ -433,6 +435,7 @@ function TimelinePlannerContent() {
                 </div>
               );
             })}
+            </div>
           </div>
         </div>
       </div>
